@@ -11,6 +11,5 @@ Style/StringLiterals:
     - "config/**/*"
     - "lib/**/*"
     - "spec/**/*"
-    - "test/**/*"
     - "Gemfile"
     - "db/seeds.rb"

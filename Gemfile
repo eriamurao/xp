@@ -35,7 +35,7 @@ gem 'image_processing', '~> 1.2'
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
 
-gem 'anthropic'
+gem 'anthropic', '~> 1.59'
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -51,4 +51,7 @@ group :development, :test do
   gem 'rubocop-rails-omakase', require: false
 
   gem 'dotenv'
+
+  gem 'rspec-rails', '~> 8.0'
+  gem 'factory_bot_rails'
 end
