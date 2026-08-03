@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_29_133212) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_140116) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -20,5 +20,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_29_133212) do
     t.string "messages_id", null: false
     t.string "title"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "link_mappings", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "link_code", null: false
+    t.string "redirect_link", null: false
+    t.datetime "updated_at", null: false
+    t.index ["link_code"], name: "index_link_mappings_on_link_code", unique: true
   end
 end

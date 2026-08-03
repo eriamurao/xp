@@ -7,4 +7,10 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+
+  resources :links, only: [ :show ] do
+    collection do
+      post :generate_short_url
+    end
+  end
 end

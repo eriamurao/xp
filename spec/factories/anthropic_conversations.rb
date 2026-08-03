@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :anthropic_conversation do
-    sequence(:messages_id) { |n| "msg_#{n}" }
-    title { 'Conversation' }
-    messages { [ { role: 'user', content: 'Hello' } ] }
+    messages_id { Faker::Alphanumeric.alphanumeric(number: 20) }
+    title { Faker::Movies::HarryPotter.spell }
+    messages { [ { role: 'user', content: Faker::Movies::HarryPotter.quote } ] }
   end
 end
