@@ -9,6 +9,10 @@ class LinksController < ApplicationController
     end
   end
 
+  # Important: Since allow_other_host: true is triggers a warning in Brakeman.
+  #   Since this is an intentional open redirect, we should ignore the warning.
+  #   When updating this code, make sure to update the fingerprint in config/brakeman.ignore.
+  #   Run `bin/rails brakeman:sync_ignore` to update the ignore file.
   def show
     mapping = LinkMapping.find_by(link_code: params[:id])
     link_url = mapping&.safe_redirect_link
