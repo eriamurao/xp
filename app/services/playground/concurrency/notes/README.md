@@ -1,3 +1,5 @@
 Concurrency — multiple things in progress at once, potentially interleaving on a single core (e.g., one Rails process handling many requests via threads/fibers, or multiple requests being logically simultaneous even if not literally executing at the same nanosecond).
 
 Parallelism — multiple things actually executing at the same time, on different cores/machines (e.g., 50 app servers, or multiple worker processes on one machine, literally running code simultaneously).
+
+> To be fixed
