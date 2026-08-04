@@ -1,0 +1,10 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Redirect",
+      "warning_code": 18,
+      "fingerprint": "6bf92cca9bebaa5c3f190a0b897b804a3acfa863752f3bb5254c73ca09700d16",
+      "note": "Intentional open redirect for URL shortener. redirect_link must be http(s) with a host (validated on create and again via LinkMapping#safe_redirect_link before redirect)."
+    }
+  ]
+}

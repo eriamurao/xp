@@ -54,5 +54,15 @@ RSpec.describe 'Links', type: :request do
       expect(response).to have_http_status(:not_found)
       expect(response.body).to be_blank
     end
+
+    it 'returns not found when the stored redirect URL is not http(s)' do
+      mapping = create(:link_mapping, redirect_link: 'https://example.com')
+      mapping.update_column(:redirect_link, 'javascript:alert(1)')
+
+      get link_path(mapping.link_code)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_blank
+    end
   end
 end

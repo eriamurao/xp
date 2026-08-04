@@ -11,11 +11,12 @@ class LinksController < ApplicationController
 
   def show
     mapping = LinkMapping.find_by(link_code: params[:id])
+    link_url = mapping&.safe_redirect_link
 
-    if mapping
+    if link_url
       # explicitly set the status to found (302) to indicate a temporary redirect and
       # not a permanent redirect to account for visits to the short URL
-      redirect_to mapping.redirect_link, status: :found, allow_other_host: true
+      redirect_to link_url, status: :found, allow_other_host: true
     else
       head :not_found
     end

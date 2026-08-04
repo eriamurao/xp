@@ -6,19 +6,23 @@ class LinkMapping < ApplicationRecord
 
   before_validation :generate_link_code, on: :create
 
+  def safe_redirect_link
+    return nil if redirect_link.blank?
+
+    uri = URI.parse(redirect_link)
+    uri.is_a?(URI::HTTP) && uri.host.present? ? uri.to_s : nil
+  rescue URI::InvalidURIError
+    nil
+  end
+
   private
 
   def long_url_must_be_valid
-    if redirect_link.blank?
-      errors.add(:redirect_link, 'is required')
-    end
+    return if redirect_link.blank?
 
-    uri = URI.parse(redirect_link)
-    unless uri.is_a?(URI::HTTP) && uri.host.present?
+    if safe_redirect_link.blank?
       errors.add(:redirect_link, 'must be a valid http or https URL')
     end
-  rescue URI::InvalidURIError
-    errors.add(:redirect_link, 'must be a valid URL')
   end
 
   def generate_link_code

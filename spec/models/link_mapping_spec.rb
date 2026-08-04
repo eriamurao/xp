@@ -54,7 +54,27 @@ RSpec.describe LinkMapping, type: :model do
       mapping = build(:link_mapping, redirect_link: 'not a url')
 
       expect(mapping).not_to be_valid
-      expect(mapping.errors[:redirect_link]).to include('must be a valid URL')
+      expect(mapping.errors[:redirect_link]).to include('must be a valid http or https URL')
+    end
+  end
+
+  describe '#safe_redirect_link' do
+    it 'returns the URL for a valid https link' do
+      mapping = build(:link_mapping, redirect_link: 'https://example.com/path')
+
+      expect(mapping.safe_redirect_link).to eq('https://example.com/path')
+    end
+
+    it 'returns nil for non-http(s) schemes' do
+      mapping = build(:link_mapping, redirect_link: 'javascript:alert(1)')
+
+      expect(mapping.safe_redirect_link).to be_nil
+    end
+
+    it 'returns nil for malformed URLs' do
+      mapping = build(:link_mapping, redirect_link: 'not a url')
+
+      expect(mapping.safe_redirect_link).to be_nil
     end
   end
 
