@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_140116) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_032137) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140116) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "events", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "end_time", null: false
+    t.integer "max_capacity", null: false
+    t.string "name", null: false
+    t.datetime "start_time", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "link_mappings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "link_code", null: false
@@ -29,4 +38,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140116) do
     t.datetime "updated_at", null: false
     t.index ["link_code"], name: "index_link_mappings_on_link_code", unique: true
   end
+
+  create_table "tickets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "event_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["event_id"], name: "index_tickets_on_event_id"
+    t.index ["user_id"], name: "index_tickets_on_user_id"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.string "first_name"
+    t.string "last_name"
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+  end
+
+  add_foreign_key "tickets", "events"
+  add_foreign_key "tickets", "users"
 end
