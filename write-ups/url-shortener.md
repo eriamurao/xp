@@ -41,7 +41,6 @@ Accept a long URL, persist a **unique** short code, and redirect visitors to the
 - **Analytics:** Log or store visits per `link_code` (requires redirects to hit the app—see [302 vs 301](#redirect-302-found-vs-301-moved-permanently) below).
 - **Rate limiting** for create and/or redirect when links are private or authenticated.
 - **Read replicas** for PostgreSQL if redirect lookups dominate.
-- **Hot-path cache** for high-traffic slugs (e.g. in-memory LRU by `link_code` rather than TTL-only eviction, so popular links stay warm).
 - **Read replica lag:** if replicas are added, a link created and immediately visited before replication catches up could 404 on the replica. Minor in practice, but worth naming as a tradeoff.
 
 ## ID generation: options considered
@@ -83,6 +82,27 @@ A central coordinator assigns each server a numeric range (e.g. Server A: `1_000
 
 **Why Snowflake for this repo:** Good balance of short codes, no central allocator in the experiment, and no guessable sequential slugs—without accepting UUID length.
 
+## Caching frequently accessed codes
+
+The redirect path (`GET /links/:id`) is read-heavy. [`LinksController#show`](../app/controllers/links_controller.rb) checks `Rails.cache` before querying PostgreSQL.
+
+**Lookup flow**
+
+1. Reject blank or malformed `link_code` values (must match `LinkMapping::LINK_CODE_FORMAT`: 4–11 alphanumeric characters) with **404** — no cache or DB access.
+2. `Rails.cache.fetch(LinkMapping.cache_key(code), expires_in: 1.hour, skip_nil: true)` — on miss, load `LinkMapping.find_by(link_code:)` and cache `safe_redirect_link`.
+3. **`skip_nil: true`** — do not cache misses, so a code created after an initial failed lookup is found on the next request.
+4. **Invalidation** — [`LinkMapping`](../app/models/link_mapping.rb) deletes the cache entry on destroy and when `redirect_link` or `link_code` changes.
+
+**Cache store by environment**
+
+| Environment | Store | Notes |
+|-------------|-------|-------|
+| **Development** | Redis (`redis_cache_store`) | Requires local Redis; see [README](../README.md) |
+| **Production** | Solid Cache (`solid_cache_store`) | DB-backed; no Redis dependency for redirects |
+| **Test** | `:null_store` in config; request specs swap in `MemoryStore` where needed |
+
+Entries expire after **one hour** via `expires_in`. There is no application-level LRU; Redis memory eviction (if configured) is an ops/server setting, not something the Rails app sets today.
+
 ## Redirect: `302 Found` vs `301 Moved Permanently`
 
 In [`LinksController#show`](../app/controllers/links_controller.rb) the app uses **`302 Found`** (`status: :found`), not `301`.
@@ -100,6 +120,7 @@ External hosts are allowed via `allow_other_host: true` because destinations are
 sequenceDiagram
   participant Client
   participant LinksController
+  participant Cache as Rails.cache
   participant LinkMapping
   participant Snowflake
   participant Base62
@@ -115,7 +136,15 @@ sequenceDiagram
   LinksController-->>Client: 201 { short_url }
 
   Client->>LinksController: GET /links/:id
-  LinksController->>DB: find_by(link_code: id)
+  LinksController->>LinksController: validate link_code format
+  LinksController->>Cache: fetch(link_mapping:code)
+  alt cache hit
+    Cache-->>LinksController: redirect_link
+  else cache miss
+    Cache->>DB: find_by(link_code)
+    DB-->>Cache: safe_redirect_link (skip_nil if nil)
+    Cache-->>LinksController: redirect_link
+  end
   LinksController-->>Client: 302 Location: redirect_link (or 404)
 ```
 
@@ -150,6 +179,8 @@ Rails routes: `resources :links, only: [:show]` plus collection route `post :gen
 
 On create, `redirect_link` must be present and parse as **`URI::HTTP` / `URI::HTTPS`** with a non-empty **host** (see `long_url_must_be_valid` on [`LinkMapping`](../app/models/link_mapping.rb)). Malformed URIs and non-http(s) schemes are rejected before insert.
 
+`link_code` must match **`LINK_CODE_FORMAT`** (`4–11` alphanumeric characters) on create and on the redirect path. Invalid codes return **404** without a DB lookup.
+
 Brakeman may flag **open redirects** on `redirect_to` with `allow_other_host: true`; that is intentional for a shortener, gated by the validation above. See `config/brakeman.ignore` if documented for CI.
 
 ## Files (this experiment)
@@ -167,8 +198,8 @@ Brakeman may flag **open redirects** on `redirect_to` with `allow_other_host: tr
 
 | Spec | Covers |
 |------|--------|
-| [`spec/requests/links_spec.rb`](../spec/requests/links_spec.rb) | HTTP API (create + redirect + 404) |
-| [`spec/models/link_mapping_spec.rb`](../spec/models/link_mapping_spec.rb) | Validations + `link_code` generation (snowflake stubbed) |
+| [`spec/requests/links_spec.rb`](../spec/requests/links_spec.rb) | HTTP API (create + redirect + 404), cache hits/misses, format guards |
+| [`spec/models/link_mapping_spec.rb`](../spec/models/link_mapping_spec.rb) | Validations, `link_code` generation, cache invalidation |
 | [`spec/services/utils/base62_service_spec.rb`](../spec/services/utils/base62_service_spec.rb) | Slug encode/decode |
 | [`spec/services/snowflake/generator_service_spec.rb`](../spec/services/snowflake/generator_service_spec.rb) | Id layout, sequence, concurrency |
 
@@ -192,4 +223,3 @@ bundle exec rspec spec/requests/links_spec.rb \
 - [ ] Shared/process-level `GeneratorService` (avoid per-record `new`)
 - [ ] Wire `machine_id` from hostname/pod ordinal in Kubernetes
 - [ ] Analytics table + redirect logging
-- [ ] Cache layer for hot `link_code` lookups

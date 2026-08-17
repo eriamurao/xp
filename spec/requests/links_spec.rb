@@ -16,6 +16,7 @@ RSpec.describe 'Links', type: :request do
 
       expect(body['short_url']).to include("/links/#{mapping.link_code}")
       expect(mapping.redirect_link).to eq(long_url)
+      expect(mapping.link_code).to match(LinkMapping::LINK_CODE_FORMAT)
     end
 
     it 'returns validation errors for an invalid long URL' do
@@ -39,6 +40,14 @@ RSpec.describe 'Links', type: :request do
   end
 
   describe 'GET /links/:id' do
+    around do |example|
+      original_cache = Rails.cache
+      Rails.cache = ActiveSupport::Cache::MemoryStore.new
+      example.run
+    ensure
+      Rails.cache = original_cache
+    end
+
     it 'redirects to the stored URL with a temporary redirect' do
       mapping = create(:link_mapping, redirect_link: 'https://destination.example/target')
 
@@ -49,7 +58,34 @@ RSpec.describe 'Links', type: :request do
     end
 
     it 'returns not found when the link code does not exist' do
-      get link_path('missing-code')
+      get link_path('abcdefghij')
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_blank
+    end
+
+    it 'returns not found for link codes with invalid format' do
+      expect(LinkMapping).not_to receive(:find_by)
+
+      get link_path('invalid!')
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_blank
+    end
+
+    it 'returns not found for link codes that are too short' do
+      expect(LinkMapping).not_to receive(:find_by)
+
+      get link_path('abc')
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_blank
+    end
+
+    it 'returns not found for link codes that are too long' do
+      expect(LinkMapping).not_to receive(:find_by)
+
+      get link_path('abcdefghijklmnop')
 
       expect(response).to have_http_status(:not_found)
       expect(response.body).to be_blank
@@ -63,6 +99,48 @@ RSpec.describe 'Links', type: :request do
 
       expect(response).to have_http_status(:not_found)
       expect(response.body).to be_blank
+    end
+
+    it 'serves redirects from cache on subsequent requests' do
+      mapping = create(:link_mapping, redirect_link: 'https://destination.example/cached')
+
+      get link_path(mapping.link_code)
+      expect(response).to redirect_to('https://destination.example/cached')
+
+      mapping.update_column(:redirect_link, 'https://destination.example/uncached')
+
+      get link_path(mapping.link_code)
+
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to('https://destination.example/cached')
+    end
+
+    it 'returns not found after destroy when the redirect was cached' do
+      mapping = create(:link_mapping, redirect_link: 'https://destination.example/cached')
+
+      get link_path(mapping.link_code)
+      expect(response).to redirect_to('https://destination.example/cached')
+
+      mapping.destroy!
+
+      get link_path(mapping.link_code)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_blank
+    end
+
+    it 'does not cache missing link codes' do
+      code = 'abcdefghij'
+
+      get link_path(code)
+      expect(response).to have_http_status(:not_found)
+
+      create(:link_mapping, link_code: code, redirect_link: 'https://example.com/new')
+
+      get link_path(code)
+
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to('https://example.com/new')
     end
   end
 end

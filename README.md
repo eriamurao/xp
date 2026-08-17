@@ -44,11 +44,12 @@ The root README stays at **project overview + TOC + setup**. Each experiment’s
 
 ## App setup
 
-Standard Rails 8 API app (PostgreSQL). From the project root:
+Standard Rails 8 API app (PostgreSQL). Development caching uses Redis for the URL shortener redirect cache. From the project root:
 
 ```bash
 bundle install
 bin/rails db:prepare
+redis-server   # or set REDIS_URL to an existing instance
 bin/rails server
 ```
 

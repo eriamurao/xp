@@ -14,8 +14,17 @@ class LinksController < ApplicationController
   #   When updating this code, make sure to update the fingerprint in config/brakeman.ignore.
   #   Run `bin/rails brakeman:sync_ignore` to update the ignore file.
   def show
-    mapping = LinkMapping.find_by(link_code: params[:id])
-    link_url = mapping&.safe_redirect_link
+    code = params[:id]
+    if code.blank? || !code.match?(LinkMapping::LINK_CODE_FORMAT)
+      head :not_found
+      return
+    end
+
+    code_key = LinkMapping.cache_key(code)
+    link_url =
+      Rails.cache.fetch(code_key, expires_in: 1.hour, skip_nil: true) do
+        LinkMapping.find_by(link_code: code)&.safe_redirect_link
+      end
 
     if link_url
       # explicitly set the status to found (302) to indicate a temporary redirect and
